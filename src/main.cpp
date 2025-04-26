@@ -7,9 +7,9 @@
 
 const char* mqtt_server = "mqtt.eclipseprojects.io"; //mqtt server
 //const char* ssid = "WiFi_OliveNet-F7BFAC";
-//const char* password = "X4HmTsqD";
+//const char* password = "";
 const char* ssid = "Redmi Note 13";
-const char* password = "movistar98";
+const char* password = "";
 
 WiFiClient espClient;
 PubSubClient client(espClient); //lib required for mqtt
