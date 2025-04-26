@@ -1,25 +1,15 @@
-/*
-  Basic ESP32 MQTT example
-  This sketch demonstrates the capabilities of the pubsub library in combination
-  with the ESP32 board/library.
-  It connects to an MQTT server then:
-  - publishes "connected to MQTT" to the topic "outTopic"
-  - subscribes to the topic "inTopic", printing out messages
-    it receives. NB - it assumes the received payloads are strings not binary
-  - If the "ON" payload is send to the topic "inTopic" , LED will be turned on, and acknowledgement will be send to Topic "outTopic"
-  - If the "OFF" payload is send to the topic "inTopic" , LED will be turned OFF, and acknowledgement will be send to Topic "outTopic"
-  It will reconnect to the server if the connection is lost using a
-  reconnect function.
-*/
+
 
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
 #include "ESP32_Servo.h"
 
-const char* mqtt_server = "test.mosquitto.org"; //mqtt server
-const char* ssid = "WiFi_OliveNet-F7BFAC";
-const char* password = "X4HmTsqD";
+const char* mqtt_server = "mqtt.eclipseprojects.io"; //mqtt server
+//const char* ssid = "WiFi_OliveNet-F7BFAC";
+//const char* password = "X4HmTsqD";
+const char* ssid = "Redmi Note 13";
+const char* password = "movistar98";
 
 WiFiClient espClient;
 PubSubClient client(espClient); //lib required for mqtt
@@ -41,11 +31,11 @@ void callback(char* topic, byte* payload, unsigned int length) {   //callback in
     client.publish("SALIDA/01", "SERVO turned ON");
     miServo.attach(pinServo);
     miServo.write(0); // Mover el servo a 0 grados
-    delay(1000);
+    delay(1250);
     miServo.detach();
-    delay(1000);
+
     miServo.attach(pinServo); // Esperar 1 segundo
-    miServo.write(180);       // Mover el servo a 90 grados
+    miServo.write(90);       // Mover el servo a 90 grados
     delay(1000);              // Esperar 1 segundo
     miServo.detach();
 
@@ -58,23 +48,32 @@ void callback(char* topic, byte* payload, unsigned int length) {   //callback in
 }
 void reconnect() {
   while (!client.connected()) {
-    Serial.println("Attempting MQTT connection...");
-    if (client.connect("ESP32_clientID")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish("SALIDA/01", "Nodemcu connected to MQTT");
-      // ... and resubscribe
-      client.subscribe("Entrada/01");
+    Serial.println("Intentando conectar a MQTT...");
 
+    if (client.connect("ESP32_clientID")) {
+      Serial.println("Conectado a MQTT");
+      client.publish("SALIDA/01", "Nodemcu conectado a MQTT");
+      client.subscribe("Entrada/01");
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
+      Serial.print("❌ Error de conexión MQTT, código: ");
+      Serial.println(client.state());  // Muestra el error específico
+      Serial.println("Reintentando en 5 segundos...");
       delay(5000);
     }
   }
 }
+
+void checkWiFi() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ WiFi desconectado, intentando reconectar...");
+    client.publish("SALIDA/01", "⚠️ WiFi desconectado, intentando reconectar...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(5000);
+  }
+}
+
+/*
 void connectmqtt()
 {
   client.connect("ESP32_clientID");  // ESP will connect to mqtt broker with clientID
@@ -92,6 +91,8 @@ void connectmqtt()
     }
   }
 }
+*/
+
 void setup()
 {
   Serial.begin(115200);
@@ -113,14 +114,15 @@ void setup()
   Serial.println("connected");
   client.setServer(mqtt_server, 1883);//connecting to mqtt server
   client.setCallback(callback);
-  //delay(5000);
-  connectmqtt();
+  delay(5000);
+  reconnect();
 }
 
 
 void loop()
 {
   // put your main code here, to run repeatedly:
+  checkWiFi();
   if (!client.connected())
   {
     reconnect();
@@ -128,5 +130,3 @@ void loop()
 
   client.loop();
 }
-
-
