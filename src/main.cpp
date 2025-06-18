@@ -7,9 +7,9 @@
 
 const char* mqtt_server = "mqtt.eclipseprojects.io"; //mqtt server
 //const char* ssid = "WiFi_OliveNet-F7BFAC";
-//const char* password = "";
+//const char* password = "X4HmTsqD";
 const char* ssid = "Redmi Note 13";
-const char* password = "";
+const char* password = "movistar98";
 
 WiFiClient espClient;
 PubSubClient client(espClient); //lib required for mqtt
@@ -34,15 +34,33 @@ void callback(char* topic, byte* payload, unsigned int length) {   //callback in
     delay(1250);
     miServo.detach();
 
+
     miServo.attach(pinServo); // Esperar 1 segundo
     miServo.write(90);       // Mover el servo a 90 grados
-    delay(1000);              // Esperar 1 segundo
+    delay(100);              // Esperar 1 segundo
     miServo.detach();
 
   }
-  else if ((char)payload[0] == 'O' && (char)payload[1] == 'F' && (char)payload[2] == 'F') //off
+  else if ((char)payload[0] == '0') //off
   {
-
+    miServo.attach(pinServo); // Esperar 1 segundo
+    miServo.write(0);       // Mover el servo a 90 grados
+    delay(100);              // Esperar 1 segundo
+    miServo.detach();
+  }
+  else if ((char)payload[0] == '4' && (char)payload[1] == '5' ) //off
+  {
+    miServo.attach(pinServo); // Esperar 1 segundo
+    miServo.write(45);       // Mover el servo a 90 grados
+    delay(100);              // Esperar 1 segundo
+    miServo.detach();
+  }
+  else if ((char)payload[0] == '1' && (char)payload[1] == '8' && (char)payload[2] == '0'  ) //off
+  {
+    miServo.attach(pinServo); // Esperar 1 segundo
+    miServo.write(180);       // Mover el servo a 90 grados
+    delay(100);              // Esperar 1 segundo
+    miServo.detach();
   }
   Serial.println();
 }
