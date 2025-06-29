@@ -1,67 +1,75 @@
 
-
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
 #include "ESP32_Servo.h"
 
-const char* mqtt_server = "mqtt.eclipseprojects.io"; 
+#include "esp_wifi.h"
+#include "esp_sleep.h"
 
+const char* mqtt_server = "mqtt.eclipseprojects.io"; 
 const char* ssid = "";
 const char* password = "";
+
 WiFiClient espClient;
 PubSubClient client(espClient); 
 
 Servo miServo;
-const int pinServo = 18;
+const int pinServo = 18; //Pin del servomotor
 
-void callback(char* topic, byte* payload, unsigned int length) {   
-  Serial.print("Message arrived [");
+// Pin de botón externo que despertará al ESP32 desde deep sleep
+const gpio_num_t BOTON_WAKE = GPIO_NUM_4; 
+unsigned long tiempoUltimoMensaje = 0;
+const unsigned long TIEMPO_INACTIVIDAD_MS = 10000;
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensaje recibido [");
   Serial.print(topic);
   Serial.print("] ");
-  for (int i = 0; i < length; i++)
-  {
+  for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
-  if ((char)payload[0] == 'C') //on
-  {
+
+  tiempoUltimoMensaje = millis(); // Establece a la varible en que tiempo desde que lleva encendido el esp recibio un mensaje
+
+  if ((char)payload[0] == 'C') {
     client.publish("SALIDA/01", "Calibrando (subiendo pulsador)");
     miServo.attach(pinServo);
-    miServo.writeMicroseconds(1500); 
+    miServo.writeMicroseconds(1750); 
+    delay(1250);
+    miServo.detach();
+  } 
+  else if ((char)payload[0] == 'O' && (char)payload[1] == 'N') {
+    client.publish("SALIDA/01", "Pulsando boton del ascensor");
+    miServo.attach(pinServo);
+    miServo.writeMicroseconds(500); 
     delay(1250);
     miServo.detach();
 
-  }
-  else if ((char)payload[0] == 'O' && (char)payload[1] == 'N') //on
-  {
+    miServo.attach(pinServo); 
+    miServo.writeMicroseconds(1500);     
+    delay(100);             
+    miServo.detach();
+  } 
+  else if ((char)payload[0] == 'A') {
     client.publish("SALIDA/01", "Pulsando boton del ascensor");
     miServo.attach(pinServo);
     miServo.writeMicroseconds(750); 
     delay(1250);
     miServo.detach();
 
-
     miServo.attach(pinServo); 
-    miServo.writeMicroseconds(1250);     
+    miServo.writeMicroseconds(1500);     
     delay(100);             
-    miServo.detach();
-
-  }
-  else if ((char)payload[0] == 'A') 
-  {
-    client.publish("SALIDA/01", "Moviendo pulsador abajo del todo");
-    miServo.attach(pinServo); 
-    miServo.writeMicroseconds(500);     
-    delay(100);              
     miServo.detach();
   }
 
   Serial.println();
 }
+
 void reconnect() {
   while (!client.connected()) {
     Serial.println("Intentando conectar a MQTT...");
-
     if (client.connect("ESP32_clientID")) {
       Serial.println("Conectado a MQTT");
       client.publish("SALIDA/01", "Conectado a MQTT");
@@ -85,39 +93,59 @@ void checkWiFi() {
   }
 }
 
-void setup()
-{
-  Serial.begin(115200);
-    Serial.print("Conectándose a ");
-  Serial.println(ssid);
+void entrarEnDeepSleep() {
+  Serial.println("Inactividad detectada. Entrando en deep sleep...");
 
+  // Configura el botón como fuente de interrupción para despertar
+  esp_sleep_enable_ext0_wakeup(BOTON_WAKE, 0); // Se despierta con nivel LOW
+
+  delay(100); // Espera final para limpieza de buffers
+  esp_deep_sleep_start();
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(2, OUTPUT);
+  pinMode(BOTON_WAKE, INPUT_PULLUP); // Botón con resistencia pull-up interna
+
+  Serial.print("Conectándose a ");
+  Serial.println(ssid);
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);
   }
-  Serial.println("");
+  Serial.println();
   Serial.println("Conectado a WiFi");
   Serial.println("Dirección IP: ");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Conectado");
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-  delay(5000);
+  delay(500);
   reconnect();
+
+  esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // ahorro de energía moderado
+
+  tiempoUltimoMensaje = millis(); // Iniciar temporizador
 }
 
-
-void loop()
-{
+void loop() {
   checkWiFi();
-  if (!client.connected())
-  {
+  if (!client.connected()) {
     reconnect();
   }
 
+   digitalWrite(2, HIGH);  //Dejo el led de la placa encendido para saber cuando NO esta en deep sleep
+
   client.loop();
+
+  // Si pasan 10 segundos sin recibir mensajes, entrar en deep sleep
+  if (millis() - tiempoUltimoMensaje > TIEMPO_INACTIVIDAD_MS) {
+    entrarEnDeepSleep();
+  }
+
+  delay(100);
 }
