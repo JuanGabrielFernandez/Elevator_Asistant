@@ -17,10 +17,6 @@ PubSubClient client(espClient);
 Servo miServo;
 const int pinServo = 18; //Pin del servomotor
 
-// Pin de botón externo que despertará al ESP32 desde deep sleep
-const gpio_num_t BOTON_WAKE = GPIO_NUM_4; 
-unsigned long tiempoUltimoMensaje = 0;
-const unsigned long TIEMPO_INACTIVIDAD_MS = 10000;
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Mensaje recibido [");
@@ -30,29 +26,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
 
-  tiempoUltimoMensaje = millis(); // Establece a la varible en que tiempo desde que lleva encendido el esp recibio un mensaje
-
-  if ((char)payload[0] == 'C') {
-    client.publish("SALIDA/01", "Calibrando (subiendo pulsador)");
-    miServo.attach(pinServo);
-    miServo.writeMicroseconds(1750); 
-    delay(1250);
-    miServo.detach();
-  } 
-  else if ((char)payload[0] == 'O' && (char)payload[1] == 'N') {
-    client.publish("SALIDA/01", "Pulsando boton del ascensor");
-    miServo.attach(pinServo);
-    miServo.writeMicroseconds(500); 
-    delay(1250);
-    miServo.detach();
-
-    miServo.attach(pinServo); 
-    miServo.writeMicroseconds(1500);     
-    delay(100);             
-    miServo.detach();
-  } 
-  else if ((char)payload[0] == 'A') {
-    client.publish("SALIDA/01", "Pulsando boton del ascensor");
+if (strcmp(topic, "Elevator") == 0)   //Compruebo que el topic sea Elevator
+{
+  if ((char)payload[0] == 'O' && (char)payload[1] == 'N') {
+     client.publish("SALIDA/01", "Pulsando boton del ascensor");
     miServo.attach(pinServo);
     miServo.writeMicroseconds(750); 
     delay(1250);
@@ -62,7 +39,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     miServo.writeMicroseconds(1500);     
     delay(100);             
     miServo.detach();
-  }
+  } 
+}
+
 
   Serial.println();
 }
@@ -73,7 +52,7 @@ void reconnect() {
     if (client.connect("ESP32_clientID")) {
       Serial.println("Conectado a MQTT");
       client.publish("SALIDA/01", "Conectado a MQTT");
-      client.subscribe("Entrada/01");
+      client.subscribe("Elevator");
     } else {
       Serial.print("Error de conexión MQTT, código: ");
       Serial.println(client.state());  
@@ -86,13 +65,31 @@ void reconnect() {
 void checkWiFi() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi desconectado, intentando reconectar...");
-    client.publish("SALIDA/01", "WiFi desconectado, intentando reconectar...");
+    digitalWrite(2, LOW);  // Apaga el LED
+
     WiFi.disconnect();
-    WiFi.reconnect();
-    delay(5000);
+    WiFi.begin(ssid, password);  //Intentamos reconectar con las credenciales
+
+    unsigned long startAttemptTime = millis();
+    const unsigned long timeout = 10000; // Esperamos hasta 10 segundos
+
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nReconectado a WiFi");
+      digitalWrite(2, HIGH);  // Enciende el LED
+    } else {
+      Serial.println("\nNo se pudo reconectar al WiFi");
+    }
+  } else {
+    digitalWrite(2, HIGH); // Enciende el LED si ya está conectado
   }
 }
 
+/*
 void entrarEnDeepSleep() {
   Serial.println("Inactividad detectada. Entrando en deep sleep...");
 
@@ -103,11 +100,12 @@ void entrarEnDeepSleep() {
   esp_deep_sleep_start();
 }
 
+*/
+
 void setup() {
   Serial.begin(115200);
 
   pinMode(2, OUTPUT);
-  pinMode(BOTON_WAKE, INPUT_PULLUP); // Botón con resistencia pull-up interna
 
   Serial.print("Conectándose a ");
   Serial.println(ssid);
@@ -129,7 +127,6 @@ void setup() {
 
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // ahorro de energía moderado
 
-  tiempoUltimoMensaje = millis(); // Iniciar temporizador
 }
 
 void loop() {
@@ -137,15 +134,10 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-
-   digitalWrite(2, HIGH);  //Dejo el led de la placa encendido para saber cuando NO esta en deep sleep
-
+ digitalWrite(2, HIGH);  // ENCIENDE el LED
+  
   client.loop();
-
-  // Si pasan 10 segundos sin recibir mensajes, entrar en deep sleep
-  if (millis() - tiempoUltimoMensaje > TIEMPO_INACTIVIDAD_MS) {
-    entrarEnDeepSleep();
-  }
 
   delay(100);
 }
+
