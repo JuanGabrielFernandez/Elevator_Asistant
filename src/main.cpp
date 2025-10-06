@@ -10,6 +10,7 @@ CODIGO POR UDP
 #include <std_msgs/msg/int32.h>
 
 #define pinServo 18
+#define pinBoton 4
 
 rcl_subscription_t subscriber;
 std_msgs__msg__Int32 msg_sub;
@@ -42,6 +43,8 @@ void subscription_callback(const void * msgin)
 }
 
 void setup() {
+  
+  pinMode(pinBoton, INPUT_PULLUP);
   // Configurar transporte UDPset_microros_udp_transports
   set_microros_wifi_transports((char*)"ssid", (char*)"pass", (char*)"ip", 8888u);
 
@@ -66,6 +69,22 @@ void setup() {
 void loop() {
   Serial.println("cargando...");
   RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
+
+  if (digitalRead(pinBoton) == LOW) {
+  Serial.println("Botón físico presionado, activando servo...");
+  miServo.attach(pinServo);
+  miServo.writeMicroseconds(750);
+  delay(1250);
+  miServo.detach();
+
+  miServo.attach(pinServo);
+  miServo.writeMicroseconds(1500);
+  delay(100);
+  miServo.detach();
+
+  delay(1000); // antirrebote básico
+}
+
   delay(100);
 }
 
