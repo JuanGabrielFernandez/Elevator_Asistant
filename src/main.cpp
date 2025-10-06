@@ -16,6 +16,7 @@ PubSubClient client(espClient);
 
 Servo miServo;
 const int pinServo = 18; //Pin del servomotor
+const int pinBoton = 4;  // Pin del botón físico
 
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -106,6 +107,7 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(2, OUTPUT);
+   pinMode(pinBoton, INPUT_PULLUP); // Configuración del botón
 
   Serial.print("Conectándose a ");
   Serial.println(ssid);
@@ -137,7 +139,22 @@ void loop() {
  digitalWrite(2, HIGH);  // ENCIENDE el LED
   
   client.loop();
+if (digitalRead(pinBoton) == LOW) {
+    Serial.println("Botón presionado, activando servo...");
+    client.publish("SALIDA/01", "Botón físico presionado");
 
+    miServo.attach(pinServo);
+    miServo.writeMicroseconds(750);
+    delay(1250);
+    miServo.detach();
+
+    miServo.attach(pinServo);
+    miServo.writeMicroseconds(1500);
+    delay(100);
+    miServo.detach();
+
+    delay(1000); // Antirrebote simple
+  }
   delay(100);
 }
 
