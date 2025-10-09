@@ -125,6 +125,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);
+     botonexterno();  
   }
   Serial.println();
   Serial.println("Conectado a WiFi");
