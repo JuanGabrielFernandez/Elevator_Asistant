@@ -47,18 +47,38 @@ if (strcmp(topic, "Elevator") == 0)   //Compruebo que el topic sea Elevator
   Serial.println();
 }
 
+void botonexterno(){
+if (digitalRead(pinBoton) == LOW) {
+    Serial.println("Botón presionado, activando servo...");
+    client.publish("SALIDA/01", "Botón físico presionado");
+
+    miServo.attach(pinServo);
+    miServo.writeMicroseconds(750);
+    delay(1250);
+    miServo.detach();
+
+    miServo.attach(pinServo);
+    miServo.writeMicroseconds(1500);
+    delay(100);
+    miServo.detach();
+
+    delay(1000); // Antirrebote simple
+  }
+}
 void reconnect() {
   while (!client.connected()) {
     Serial.println("Intentando conectar a MQTT...");
+  
     if (client.connect("ESP32_clientID")) {
       Serial.println("Conectado a MQTT");
       client.publish("SALIDA/01", "Conectado a MQTT");
       client.subscribe("Elevator");
     } else {
+      botonexterno();  
       Serial.print("Error de conexión MQTT, código: ");
       Serial.println(client.state());  
-      Serial.println("Reintentando en 5 segundos...");
-      delay(5000);
+      Serial.println("Reintentando en 1 segundo...");
+      delay(1000);
     }
   }
 }
@@ -74,9 +94,11 @@ void checkWiFi() {
     unsigned long startAttemptTime = millis();
     const unsigned long timeout = 10000; // Esperamos hasta 10 segundos
 
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {  
+    botonexterno(); 
       delay(500);
       Serial.print(".");
+      
     }
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -89,19 +111,6 @@ void checkWiFi() {
     digitalWrite(2, HIGH); // Enciende el LED si ya está conectado
   }
 }
-
-/*
-void entrarEnDeepSleep() {
-  Serial.println("Inactividad detectada. Entrando en deep sleep...");
-
-  // Configura el botón como fuente de interrupción para despertar
-  esp_sleep_enable_ext0_wakeup(BOTON_WAKE, 0); // Se despierta con nivel LOW
-
-  delay(100); // Espera final para limpieza de buffers
-  esp_deep_sleep_start();
-}
-
-*/
 
 void setup() {
   Serial.begin(115200);
@@ -132,6 +141,9 @@ void setup() {
 }
 
 void loop() {
+  
+  botonexterno(); 
+
   checkWiFi();
   if (!client.connected()) {
     reconnect();
@@ -139,22 +151,9 @@ void loop() {
  digitalWrite(2, HIGH);  // ENCIENDE el LED
   
   client.loop();
-if (digitalRead(pinBoton) == LOW) {
-    Serial.println("Botón presionado, activando servo...");
-    client.publish("SALIDA/01", "Botón físico presionado");
 
-    miServo.attach(pinServo);
-    miServo.writeMicroseconds(750);
-    delay(1250);
-    miServo.detach();
-
-    miServo.attach(pinServo);
-    miServo.writeMicroseconds(1500);
-    delay(100);
-    miServo.detach();
-
-    delay(1000); // Antirrebote simple
-  }
   delay(100);
 }
+
+
 
